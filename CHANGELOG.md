@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.0-dev
+
+* Features:
+  * Load unfetched relationships if repo configured.
+
 ## v0.2.0
 
 * Features:
