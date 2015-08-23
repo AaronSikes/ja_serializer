@@ -1,3 +1,31 @@
+if Code.ensure_loaded?(Ecto) do
+  defmodule JaSerializer.AssociationNotLoadedError do
+    defexception [:message]
+
+    def exception(opts) do
+      msg = """
+      The #{opts[:rel]} relationship returned %Ecto.Association.NotLoaded{}.
+
+      Please pre-fetch the relationship before serialization or override the
+      #{opts[:name]}/2 function in your serializer.
+
+      Example:
+
+          def #{opts[:name]}(model, conn) do
+            case model.#{opts[:rel]} do
+              %Ecto.Association.NotLoaded{} ->
+                model
+                |> Ecto.Model.assoc(:#{opts[:rel]})
+                |> MyApp.Repo.all
+              other -> other
+            end
+          end
+      """
+      %JaSerializer.AssociationNotLoadedError{message: msg}
+    end
+  end
+end
+
 defmodule JaSerializer.Relationship do
   @moduledoc false
 
@@ -12,40 +40,15 @@ defmodule JaSerializer.Relationship do
   end
 
   if Code.ensure_loaded?(Ecto) do
-    require Logger
-
+    @error JaSerializer.AssociationNotLoadedError
     # If ecto is loaded we try to load relationships appropriately
     def get_data(model, name, opts) do
-      relationship = (opts[:field] || name)
+      rel = (opts[:field] || name)
       model
-      |> Map.get(relationship)
+      |> Map.get(rel)
       |> case do
-        %Ecto.Association.NotLoaded{} ->
-          Logger.debug("Consider preloading #{relationship} to improve performance")
-          Ecto.Model.assoc(model, relationship) |> find_repo(opts).all
+        %Ecto.Association.NotLoaded{} -> raise @error, rel: rel, name: name
         other -> other
-      end
-    end
-
-    defmodule UnknownRepoError do
-      defexception [:message]
-
-      def exception(_val) do
-        msg = """
-        JaSerializer was unable to fetch your relationship data.
-
-        JaSerializer can fetch your relationship for you if provided the `:repo`
-        key to the relationship definition or globally via the application config.
-        """
-        %UnknownRepoError{message: msg}
-      end
-    end
-
-    defp find_repo(%{repo: repo}), do: repo
-    defp find_repo(_) do
-      case Application.get_env(:ja_serializer, :repo) do
-        nil -> raise UnknownRepoError
-        repo -> repo
       end
     end
 
@@ -55,6 +58,5 @@ defmodule JaSerializer.Relationship do
     def get_data(model, name, opts) do
       Map.get(model, (opts[:field] || name))
     end
-
   end
 end

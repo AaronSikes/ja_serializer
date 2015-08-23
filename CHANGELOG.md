@@ -3,7 +3,7 @@
 ## v0.3.0-dev
 
 * Features:
-  * Load unfetched relationships if repo configured.
+  * Raises exception if relationship is not pre-fetched.
 
 ## v0.2.0
 
